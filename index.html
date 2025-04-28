@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>ChatGPT Mini</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f2f2f2; padding: 20px; }
+    #chat { border: 1px solid #ccc; background: #fff; padding: 10px; height: 400px; overflow-y: scroll; }
+    #input { margin-top: 10px; }
+    #input input { width: 80%; padding: 10px; }
+    #input button { padding: 10px; }
+  </style>
+</head>
+<body>
+
+<h2>ChatGPT Mini - Hoşgeldin</h2>
+<div id="chat"></div>
+
+<div id="input">
+  <input type="text" id="message" placeholder="Bir şeyler yaz...">
+  <button onclick="sendMessage()">Gönder</button>
+</div>
+
+<script>
+async function sendMessage() {
+  const message = document.getElementById("message").value;
+  document.getElementById("chat").innerHTML += "<b>Sen:</b> " + message + "<br>";
+
+  const response = await fetch("/api/chat.php", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: message })
+  });
+
+  const data = await response.json();
+  if (data.error) {
+    document.getElementById("chat").innerHTML += "<b>ChatGPT Mini:</b> Bir hata oluştu.<br>";
+  } else {
+    document.getElementById("chat").innerHTML += "<b>ChatGPT Mini:</b> " + data.response + "<br>";
+  }
+
+  document.getElementById("message").value = "";
+}
+</script>
+
+</body>
+</html>
