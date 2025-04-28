@@ -10,7 +10,7 @@ if (empty($message)) {
   exit;
 }
 
-$apiKey = "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"; // kendi OpenAI api key
+$apiKey = "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"; // kendi OpenAI api key
 
 $data = [
   "model" => "gpt-3.5-turbo",
