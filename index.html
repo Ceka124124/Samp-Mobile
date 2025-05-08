@@ -1,47 +1,560 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8">
-  <title>ChatGPT Mini</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>WebRTC Çoklu Koltuk Sesli Sohbet</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #f2f2f2; padding: 20px; }
-    #chat { border: 1px solid #ccc; background: #fff; padding: 10px; height: 400px; overflow-y: scroll; }
-    #input { margin-top: 10px; }
-    #input input { width: 80%; padding: 10px; }
-    #input button { padding: 10px; }
+    /* Reset and base */
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+    body, html {
+      margin: 0; padding: 0; height: 100%;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #483D8B, #6A5ACD);
+      color: #f0f0ff;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    #app {
+      max-width: 350px;
+      margin: auto;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 12px 14px;
+      gap: 10px;
+    }
+    h1 {
+      text-align: center;
+      margin: 10px 0;
+      font-weight: 900;
+      font-size: 1.8rem;
+      color: #cbd5e1;
+      text-shadow: 0 0 4px #94a3b8;
+      user-select: none;
+    }
+
+    /* Message container */
+    #message-screen {
+      flex: 1;
+      background: rgba(0,0,0,0.2);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.2rem;
+      text-align: center;
+      user-select: none;
+    }
+
+    /* Room screen */
+    #room-screen {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* Seats grid */
+    #seats-container {
+      flex-grow: 1;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 10px;
+      user-select: none;
+    }
+    .seat {
+      background: rgba(255,255,255,0.15);
+      border-radius: 14px;
+      height: 120px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 12px;
+      cursor: pointer;
+      position: relative;
+      box-shadow: 0 6px 10px rgba(0,0,0,0.25);
+      transition: background-color 0.25s, box-shadow 0.3s;
+      color: #e0e7ff;
+    }
+    .seat:hover {
+      background: rgba(107, 70, 193, 0.8);
+      box-shadow: 0 8px 22px #a78bfa;
+    }
+    .seat.occupied {
+      cursor: default;
+      background: #4338ca;
+      box-shadow: 0 0 16px 2px #8b5cf6;
+    }
+    .seat .username {
+      font-weight: 700;
+      font-size: 1.1rem;
+      text-align: center;
+      overflow-wrap: break-word;
+    }
+    .seat .status {
+      text-align: center;
+      font-size: 0.85rem;
+      opacity: 0.8;
+    }
+    .seat .mute-icon {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      font-size: 22px;
+      pointer-events: none;
+      user-select: none;
+      opacity: 0.8;
+      color: #f87171; /* red for muted */
+      display: none;
+    }
+    .seat.muted .mute-icon {
+      display: block;
+    }
+    .seat.you {
+      border: 3px solid #a78bfa;
+    }
+
+    /* Mute toggle button */
+    #mute-btn {
+      background: #a855f7;
+      border: none;
+      padding: 14px 0;
+      color: white;
+      font-weight: 700;
+      font-size: 1.2rem;
+      border-radius: 14px;
+      cursor: pointer;
+      margin-top: 10px;
+      box-shadow: 0 5px 15px rgba(168,85,247,0.6);
+      transition: background-color 0.3s ease;
+    }
+    #mute-btn.unmuted {
+      background: #22c55e; /* green */
+      box-shadow: 0 5px 15px rgba(34,197,94,0.7);
+    }
+    #mute-btn:disabled {
+      background: #999;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    #mute-btn:hover:not(:disabled) {
+      filter: brightness(1.1);
+    }
+
+    /* Status bar */
+    #status-bar {
+      font-weight: 600;
+      font-size: 1rem;
+      min-height: 1.4em;
+      color: #c5c7f8;
+      text-align: center;
+      margin-top: 6px;
+      user-select: none;
+    }
+
+    /* Scroll if needed but minimal */
+    #seats-container {
+      overflow-y: auto;
+    }
+
+    @media (max-width: 400px) {
+      #app {
+        max-width: 100%;
+        padding: 8px 10px;
+      }
+      .seat {
+        height: 100px;
+      }
+      h1 {
+        font-size: 1.5rem;
+      }
+      #mute-btn {
+        font-size: 1rem;
+        padding: 12px 0;
+      }
+    }
   </style>
 </head>
 <body>
+  <div id="app">
+    <h1>WebRTC Koltuk Sesli Sohbet</h1>
 
-<h2>ChatGPT Mini - Hoşgeldin</h2>
-<div id="chat"></div>
+    <div id="message-screen" style="display:none;"></div>
 
-<div id="input">
-  <input type="text" id="message" placeholder="Bir şeyler yaz...">
-  <button onclick="sendMessage()">Gönder</button>
-</div>
+    <div id="room-screen">
+      <div>Oda: <span id="room-name-display"></span> | Kullanıcı: <span id="username-display"></span></div>
+      <div id="seats-container">
+        <!-- 6 Koltuk -->
+        <div class="seat" data-seat="1"><div class="username"></div><div class="status"></div><div class="mute-icon">🔇</div></div>
+        <div class="seat" data-seat="2"><div class="username"></div><div class="status"></div><div class="mute-icon">🔇</div></div>
+        <div class="seat" data-seat="3"><div class="username"></div><div class="status"></div><div class="mute-icon">🔇</div></div>
+        <div class="seat" data-seat="4"><div class="username"></div><div class="status"></div><div class="mute-icon">🔇</div></div>
+        <div class="seat" data-seat="5"><div class="username"></div><div class="status"></div><div class="mute-icon">🔇</div></div>
+        <div class="seat" data-seat="6"><div class="username"></div><div class="status"></div><div class="mute-icon">🔇</div></div>
+      </div>
 
-<script>
-async function sendMessage() {
-  const message = document.getElementById("message").value;
-  document.getElementById("chat").innerHTML += "<b>Sen:</b> " + message + "<br>";
+      <button id="mute-btn" disabled>🎙️ Mikrofon Aç</button>
 
-  const response = await fetch("/api/chat.php", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message: message })
-  });
+      <div id="status-bar">Henüz bir koltuğa oturmadınız.</div>
+    </div>
+  </div>
 
-  const data = await response.json();
-  if (data.error) {
-    document.getElementById("chat").innerHTML += "<b>ChatGPT Mini:</b> Bir hata oluştu.<br>";
-  } else {
-    document.getElementById("chat").innerHTML += "<b>ChatGPT Mini:</b> " + data.response + "<br>";
-  }
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-  document.getElementById("message").value = "";
-}
-</script>
+  <script>
+    // URL parametrelerini al
+    function getQueryParams() {
+      const params = {};
+      location.search.substring(1).split("&").forEach(pair => {
+        const [key, value] = pair.split("=");
+        if(key && value) {
+          params[decodeURIComponent(key)] = decodeURIComponent(value);
+        }
+      });
+      return params;
+    }
 
+    // --- FİREBASE KONFİGURASYONU ---
+    // Burayı kendi Firebase projenizin konfigürasyon bilgileri ile doldurun:
+ const firebaseConfig = {
+  apiKey: "AIzaSyCTPTwYIuDBmROnBu30dzqoDYvb0pTcXuU",
+  authDomain: "chat-9f75c.firebaseapp.com",
+  databaseURL: "https://chat-9f75c-default-rtdb.firebaseio.com",
+  projectId: "chat-9f75c",
+  storageBucket: "chat-9f75c.firebasestorage.app",
+  messagingSenderId: "963858978848"
+};
+
+    // Firebase başlat
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    // --- Global değişkenler ---
+    let localStream = null;
+    let peerConnections = {}; // her seat için RTC bağlantısı (mesh)
+    let currentSeat = null;
+    let username = "";
+    let room = "";
+    let muted = false;
+    let seatsRef = null;
+    let usersRef = null;
+
+    // HTML elementleri
+    const messageScreen = document.getElementById("message-screen");
+    const roomScreen = document.getElementById("room-screen");
+    const seatsContainer = document.getElementById("seats-container");
+    const muteBtn = document.getElementById("mute-btn");
+    const statusBar = document.getElementById("status-bar");
+    const roomNameDisplay = document.getElementById("room-name-display");
+    const usernameDisplay = document.getElementById("username-display");
+
+    // RTC yapılandırması
+    const rtcConfig = {
+      iceServers: [
+        { urls: "stun:stun.l.google.com:19302" }
+      ]
+    };
+
+    // --- FireBase references, state and signaling paths in DB ---
+    // Her oda için:
+    // /rooms/{room}/seats/{seatNum}: { user, muted }
+    // /rooms/{room}/signals/{seatNum}/{peerSeatNum}: {offer/answer/ice}
+
+    // URL'den gelen bilgiler ile başlayalım
+    window.addEventListener('load', async () => {
+      const params = getQueryParams();
+      room = params.oda ? params.oda.trim() : "";
+      username = params.adim ? params.adim.trim() : "";
+
+      if(!room || !username) {
+        showMessage("URL parametrelerinde 'oda' ve 'adim' eksik veya boş.<br>Kullanım örneği:<br>?oda=ceka&adim=kullanıcı1");
+        return;
+      }
+
+      try {
+        // Mikrofona erişim iste
+        localStream = await navigator.mediaDevices.getUserMedia({audio: true});
+        // Başlangıçta mic kapalı (mute)
+        localStream.getAudioTracks().forEach(t => t.enabled = false);
+
+        hideMessage();
+        roomScreen.style.display = "flex";
+
+        roomNameDisplay.textContent = room;
+        usernameDisplay.textContent = username;
+
+        listenSeats();
+
+        statusBar.textContent = 'Lütfen boş bir koltuğa tıklayın ve oturun.';
+      } catch(err) {
+        showMessage("Mikrofon kullanımı reddedildi veya hata: " + err.message);
+      }
+    });
+
+    function showMessage(html) {
+      messageScreen.innerHTML = html;
+      messageScreen.style.display = "flex";
+      roomScreen.style.display = "none";
+    }
+    function hideMessage() {
+      messageScreen.style.display = "none";
+    }
+
+    // UI'da seat elemanını sayısal numara ile bul
+    function findSeatElement(seatNum) {
+      return seatsContainer.querySelector(`.seat[data-seat="${seatNum}"]`);
+    }
+
+    // Seat durumlarını Firebase'den dinle ve UI'ı güncelle
+    function listenSeats() {
+      seatsRef = database.ref(`rooms/${room}/seats`);
+      seatsRef.on('value', snapshot => {
+        const seatsData = snapshot.val() || {};
+        for (let i = 1; i <= 6; i++) {
+          const seatEl = findSeatElement(i);
+          const seatData = seatsData[i];
+          if (seatData && seatData.user) {
+            seatEl.classList.add('occupied');
+            seatEl.querySelector('.username').textContent = seatData.user;
+            seatEl.querySelector('.status').textContent = seatData.muted ? 'Mikrofon kapalı' : 'Mikrofon açık';
+            seatEl.classList.toggle('muted', !!seatData.muted);
+            if(currentSeat == i) {
+              seatEl.classList.add('you');
+              muteBtn.disabled = false;
+              muteBtn.textContent = seatData.muted ? '🎙️ Mikrofonu Aç' : '🔇 Mikrofonu Kapat';
+              muteBtn.classList.toggle('unmuted', !seatData.muted);
+              muted = seatData.muted;
+            } else {
+              seatEl.classList.remove('you');
+            }
+          } else {
+            seatEl.classList.remove('occupied','muted','you');
+            seatEl.querySelector('.username').textContent = '';
+            seatEl.querySelector('.status').textContent = 'Boş koltuk';
+          }
+        }
+      });
+    }
+
+    // Koltuk seçme
+    seatsContainer.addEventListener('click', async (ev) => {
+      const seatEl = ev.target.closest('.seat');
+      if (!seatEl) return;
+      const seatNum = Number(seatEl.getAttribute('data-seat'));
+      if (!seatNum) return;
+
+      if (seatEl.classList.contains('occupied')) {
+        if(currentSeat === seatNum) {
+          // Koltuktan kalk
+          if(confirm('Koltuktan kalkmak istediğinize emin misiniz?')) {
+            await leaveSeat();
+          }
+        } else {
+          alert('Bu koltuk başka kullanıcı tarafından kullanılıyor.');
+        }
+      } else {
+        // Seat boş ise otur
+        await sitOnSeat(seatNum);
+      }
+    });
+
+    async function sitOnSeat(seatNum) {
+      if(currentSeat) {
+        alert('Zaten bir koltuktasınız. Önce kalkmalısınız.');
+        return;
+      }
+      try {
+        // Seat boş mu diye kontrol et
+        const seatDataSnap = await database.ref(`rooms/${room}/seats/${seatNum}`).get();
+        if(seatDataSnap.exists() && seatDataSnap.val().user) {
+          alert('Bu koltuk şu an dolu.');
+          return;
+        }
+        // Set current seat in DB
+        await database.ref(`rooms/${room}/seats/${seatNum}`).set({
+          user: username,
+          muted: false
+        });
+        currentSeat = seatNum;
+
+        // Başlangıçta mute false, muteButon aktifleşir
+        muteBtn.disabled = false;
+
+        // Başka kullanıcılar için signaling başlat
+        await startPeerConnections();
+
+        statusBar.textContent = `Koltuk ${seatNum}'de oturuyorsunuz. Mikrofon düğmesini kullanarak sesinizi açıp kapatabilirsiniz.`;
+      } catch(e) {
+        alert('Koltuk oturum hatası: ' + e.message);
+      }
+    }
+
+    async function leaveSeat() {
+      if(!currentSeat) return;
+      try {
+        // Firebase DB'den koltuğu boşalt
+        await database.ref(`rooms/${room}/seats/${currentSeat}`).remove();
+
+        // Singaling bilgilerini temizle (opsiyonel)
+        await database.ref(`rooms/${room}/signals/${currentSeat}`).remove();
+
+        // Peer bağlantılarını kapat
+        for(const peerSeat in peerConnections) {
+          peerConnections[peerSeat].close();
+        }
+        peerConnections = {};
+        currentSeat = null;
+        muteBtn.disabled = true;
+        muted = false;
+        statusBar.textContent = 'Henüz bir koltuğa oturmadınız.';
+        muteBtn.textContent = '🎙️ Mikrofon Aç';
+        muteBtn.classList.remove('unmuted');
+      } catch(e) {
+        alert('Koltuktan kalkma hatası: ' + e.message);
+      }
+    }
+
+    // Mikrofon aç/kapat toggler
+    muteBtn.addEventListener('click', async () => {
+      if(!currentSeat) {
+        alert('Önce bir koltuğa oturun.');
+        return;
+      }
+      muted = !muted;
+      // Yerel streamde microphone track mute/unmute yap
+      localStream.getAudioTracks().forEach(track => {
+        track.enabled = !muted;
+      });
+      // DB güncelle
+      await database.ref(`rooms/${room}/seats/${currentSeat}`).update({ muted });
+
+      muteBtn.textContent = muted ? '🎙️ Mikrofonu Aç' : '🔇 Mikrofonu Kapat';
+      muteBtn.classList.toggle('unmuted', !muted);
+    });
+
+    // Tüm diğer kullanıcılar ile peer bağlantıları başlat
+    async function startPeerConnections() {
+      if(!currentSeat) return;
+      // Seats bilgisi al
+      const seatsSnap = await database.ref(`rooms/${room}/seats`).get();
+      const seatsData = seatsSnap.val() || {};
+
+      for(let seatNum =1; seatNum <=6; seatNum++) {
+        // Kendinizle bağlantı kurmayın
+        if(seatNum === currentSeat) continue;
+        // Eğer o seat dolu ise peer bağlantısını oluştur
+        if(seatsData[seatNum] && seatsData[seatNum].user) {
+          if(peerConnections[seatNum]) {
+            // Zaten bağlantı varsa atla
+            continue;
+          }
+          await setupConnectionWithPeer(seatNum);
+        }
+      }
+    }
+
+    // Peer bağlantısı kur
+    async function setupConnectionWithPeer(peerSeatNum) {
+      if(!currentSeat) return;
+
+      // Rastgele hangisi offerer olacağına karar verelim - küçük numaralı offerer olabilir
+      const isOfferer = currentSeat < peerSeatNum;
+
+      const pc = new RTCPeerConnection(rtcConfig);
+
+      localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+
+      pc.ontrack = event => {
+        playRemoteAudio(peerSeatNum, event.streams[0]);
+      };
+
+      pc.onicecandidate = event => {
+        if(event.candidate) {
+          const candidateRef = database.ref(`rooms/${room}/signals/${currentSeat}/${peerSeatNum}/ice`);
+          candidateRef.push(event.candidate.toJSON());
+        }
+      };
+
+      // ICE adaylarını dinle
+      const iceRef = database.ref(`rooms/${room}/signals/${peerSeatNum}/${currentSeat}/ice`);
+      iceRef.on('child_added', async snapshot => {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(snapshot.val()));
+        } catch(e) {
+          console.error("ICE candidate add hatası:", e);
+        }
+      });
+
+      peerConnections[peerSeatNum] = pc;
+
+      if(isOfferer) {
+        // Offer oluştur ve Firebase kaydet
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        const offerRef = database.ref(`rooms/${room}/signals/${currentSeat}/${peerSeatNum}/offer`);
+        await offerRef.set(offer.toJSON());
+      } else {
+        // Remote offer dinle
+        const offerRef = database.ref(`rooms/${room}/signals/${peerSeatNum}/${currentSeat}/offer`);
+        offerRef.on('value', async snapshot => {
+          const offerSDP = snapshot.val();
+          if(offerSDP) {
+            try {
+              await pc.setRemoteDescription(new RTCSessionDescription(offerSDP));
+              const answer = await pc.createAnswer();
+              await pc.setLocalDescription(answer);
+              const answerRef = database.ref(`rooms/${room}/signals/${currentSeat}/${peerSeatNum}/answer`);
+              await answerRef.set(answer.toJSON());
+            } catch(e) {
+              console.error('Teklif işlem hatası:', e);
+            }
+          }
+        });
+      }
+
+      // Answer dinle
+      const answerRef = database.ref(`rooms/${room}/signals/${peerSeatNum}/${currentSeat}/answer`);
+      answerRef.on('value', async snapshot => {
+        const answerSDP = snapshot.val();
+        if(answerSDP) {
+          try {
+            await pc.setRemoteDescription(new RTCSessionDescription(answerSDP));
+          } catch(e) {
+            console.error('Yanıt işlem hatası:', e);
+          }
+        }
+      });
+    }
+
+    // Uzak streami ilgili seat'ta oynat
+    function playRemoteAudio(seatNum, stream) {
+      const seatEl = findSeatElement(seatNum);
+      if (!seatEl) return;
+      let audioEl = seatEl.querySelector('audio');
+      if (!audioEl) {
+        audioEl = document.createElement('audio');
+        audioEl.autoplay = true;
+        audioEl.style.display = 'none';
+        seatEl.appendChild(audioEl);
+      }
+      audioEl.srcObject = stream;
+    }
+
+    // Sayfadan ayrılırken temizleme
+    window.addEventListener('beforeunload', async (e) => {
+      await leaveSeat();
+    });
+  </script>
 </body>
 </html>
+
