@@ -165,6 +165,84 @@
       overflow-y: auto;
     }
 
+    /* Sohbet alanı */
+    #chat-container {
+      background: rgba(255 255 255 / 0.1);
+      border-radius: 14px;
+      padding: 10px;
+      height: 150px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      user-select: none;
+    }
+    #chat-messages {
+      flex-grow: 1;
+      overflow-y: auto;
+      background: rgba(0 0 0 / 0.15);
+      border-radius: 12px;
+      padding: 8px;
+      font-size: 0.9rem;
+      color: #e0e7ff;
+      scroll-behavior: smooth;
+    }
+    #chat-input-container {
+      display: flex;
+      gap: 6px;
+    }
+    #chat-input {
+      flex-grow: 1;
+      border-radius: 14px;
+      border: none;
+      padding: 8px 12px;
+      font-size: 1rem;
+      outline: none;
+    }
+    #chat-send-btn {
+      background: #6b46c1;
+      color: white;
+      border: none;
+      border-radius: 14px;
+      padding: 8px 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background-color 0.25s ease;
+    }
+    #chat-send-btn:hover:not(:disabled) {
+      background: #553c9a;
+    }
+    #chat-send-btn:disabled {
+      background: #999;
+      cursor: not-allowed;
+    }
+
+    /* Hediye kutusu */
+    #gift-container {
+      display: flex;
+      justify-content: center;
+      margin-top: 12px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .gift-box {
+      background: rgba(255 255 255 / 0.15);
+      border-radius: 12px;
+      width: 40px;
+      height: 40px;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 24px;
+      user-select: none;
+      transition: background-color 0.3s ease;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+    .gift-box:hover {
+      background: rgba(107, 70, 193, 0.9);
+      box-shadow: 0 6px 16px rgba(107,70,193,0.8);
+    }
+
     @media (max-width: 400px) {
       #app {
         max-width: 100%;
@@ -179,6 +257,14 @@
       #mute-btn {
         font-size: 1rem;
         padding: 12px 0;
+      }
+      #chat-container {
+        height: 130px;
+      }
+      .gift-box {
+        width: 36px;
+        height: 36px;
+        font-size: 22px;
       }
     }
   </style>
@@ -201,6 +287,24 @@
         <div class="seat" data-seat="6"><div class="username"></div><div class="status"></div><div class="mute-icon">🔇</div></div>
       </div>
 
+      <!-- Sohbet Alanı -->
+      <div id="chat-container">
+        <div id="chat-messages"></div>
+        <div id="chat-input-container">
+          <input type="text" id="chat-input" placeholder="Mesaj yaz..." autocomplete="off" />
+          <button id="chat-send-btn" disabled>Gönder</button>
+        </div>
+      </div>
+
+      <!-- Hediye Kutusu -->
+      <div id="gift-container" title="Koltuklara hediye gönderin!">
+        <div class="gift-box" data-gift="🎁" title="Hediye Kutusu">🎁</div>
+        <div class="gift-box" data-gift="🌹" title="Gül">🌹</div>
+        <div class="gift-box" data-gift="🍰" title="Pasta">🍰</div>
+        <div class="gift-box" data-gift="🎉" title="Konfeti">🎉</div>
+        <div class="gift-box" data-gift="💎" title="Elmas">💎</div>
+      </div>
+
       <button id="mute-btn" disabled>🎙️ Mikrofon Aç</button>
 
       <div id="status-bar">Henüz bir koltuğa oturmadınız.</div>
@@ -218,7 +322,7 @@
       location.search.substring(1).split("&").forEach(pair => {
         const [key, value] = pair.split("=");
         if(key && value) {
-          params[decodeURIComponent(key)] = decodeURIComponent(value);
+          params[decodeURIComponent(key)] = decodeURIComponent(value.replace(/\+/g, " "));
         }
       });
       return params;
@@ -226,14 +330,15 @@
 
     // --- FİREBASE KONFİGURASYONU ---
     // Burayı kendi Firebase projenizin konfigürasyon bilgileri ile doldurun:
- const firebaseConfig = {
-  apiKey: "AIzaSyCTPTwYIuDBmROnBu30dzqoDYvb0pTcXuU",
-  authDomain: "chat-9f75c.firebaseapp.com",
-  databaseURL: "https://chat-9f75c-default-rtdb.firebaseio.com",
-  projectId: "chat-9f75c",
-  storageBucket: "chat-9f75c.firebasestorage.app",
-  messagingSenderId: "963858978848"
-};
+    const firebaseConfig = {
+      apiKey: "AIzaSyCTPTwYIuDBmROnBu30dzqoDYvb0pTcXuU",
+      authDomain: "chat-9f75c.firebaseapp.com",
+      databaseURL: "https://chat-9f75c-default-rtdb.firebaseio.com",
+      projectId: "chat-9f75c",
+      storageBucket: "chat-9f75c.appspot.com",
+      messagingSenderId: "963858978848",
+      appId: "1:963858978848:web:xxxxxxxxxxxxxx"
+    };
 
     // Firebase başlat
     firebase.initializeApp(firebaseConfig);
@@ -247,7 +352,6 @@
     let room = "";
     let muted = false;
     let seatsRef = null;
-    let usersRef = null;
 
     // HTML elementleri
     const messageScreen = document.getElementById("message-screen");
@@ -257,6 +361,10 @@
     const statusBar = document.getElementById("status-bar");
     const roomNameDisplay = document.getElementById("room-name-display");
     const usernameDisplay = document.getElementById("username-display");
+    const chatMessages = document.getElementById("chat-messages");
+    const chatInput = document.getElementById("chat-input");
+    const chatSendBtn = document.getElementById("chat-send-btn");
+    const giftContainer = document.getElementById("gift-container");
 
     // RTC yapılandırması
     const rtcConfig = {
@@ -265,10 +373,101 @@
       ]
     };
 
-    // --- FireBase references, state and signaling paths in DB ---
-    // Her oda için:
-    // /rooms/{room}/seats/{seatNum}: { user, muted }
-    // /rooms/{room}/signals/{seatNum}/{peerSeatNum}: {offer/answer/ice}
+    // Mesaj gönderme fonksiyonu
+    function sendMessage(text) {
+      if (!text.trim() || !currentSeat) return;
+      const newMsgRef = database.ref(`rooms/${room}/chat`).push();
+      newMsgRef.set({
+        user: username,
+        text: text.trim(),
+        timestamp: Date.now()
+      });
+    }
+
+    // Sohbet mesajlarını dinle
+    function listenChat() {
+      const chatRef = database.ref(`rooms/${room}/chat`);
+      chatRef.off(); // Önceki listener'ı temizle
+      chatRef.limitToLast(50).on('child_added', snapshot => {
+        const msg = snapshot.val();
+        if(msg) {
+          addChatMessage(msg.user, msg.text);
+        }
+      });
+    }
+
+    // Mesajları sohbet kutusuna ekle
+    function addChatMessage(user, text) {
+      const div = document.createElement('div');
+      div.innerHTML = `<strong>${escapeHtml(user)}:</strong> ${escapeHtml(text)}`;
+      chatMessages.appendChild(div);
+      // Scroll en alta
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // HTML güvenliği için basit kaçırma fonksiyonu
+    function escapeHtml(text) {
+      return text.replace(/[&<>"']/g, function(m) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];
+      });
+    }
+
+    // Hediye gönderme fonksiyonu
+    function sendGift(toSeat, gift) {
+      if (!currentSeat || !gift) return;
+      const giftsRef = database.ref(`rooms/${room}/gifts`);
+      // Her hediye benzersiz id ile gönderilebilir
+      giftsRef.push({
+        from: username,
+        fromSeat: currentSeat,
+        toSeat: toSeat,
+        gift: gift,
+        timestamp: Date.now()
+      });
+      alert(`Koltuk ${toSeat} numaralı kullanıcıya hediye gönderdiniz: ${gift}`);
+    }
+
+    // Hediye mesajlarını dinle
+    function listenGifts() {
+      const giftsRef = database.ref(`rooms/${room}/gifts`);
+      giftsRef.off();
+      giftsRef.limitToLast(50).on('child_added', snapshot => {
+        const gift = snapshot.val();
+        if(gift && gift.toSeat && gift.from !== username) {
+          const seatEl = findSeatElement(gift.toSeat);
+          if(seatEl) {
+            showGiftAnimation(seatEl, gift.gift, gift.from);
+          }
+        }
+      });
+    }
+
+    // Hediye animasyonu gösterimi
+    function showGiftAnimation(seatEl, giftSymbol, fromUser) {
+      const giftDiv = document.createElement('div');
+      giftDiv.textContent = giftSymbol;
+      giftDiv.style.position = 'absolute';
+      giftDiv.style.bottom = '10px';
+      giftDiv.style.right = '10px';
+      giftDiv.style.fontSize = '26px';
+      giftDiv.style.animation = 'giftAnim 2s ease forwards';
+      giftDiv.title = `${fromUser} sana hediye gönderdi!`;
+      seatEl.appendChild(giftDiv);
+      setTimeout(() => {
+        seatEl.removeChild(giftDiv);
+      }, 2000);
+    }
+
+    // Gift animasyonuna css ekleme
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes giftAnim {
+        0% {opacity: 0; transform: translateY(20px);}
+        50% {opacity: 1; transform: translateY(0);}
+        100% {opacity: 0; transform: translateY(-20px);}
+      }
+    `;
+    document.head.appendChild(style);
 
     // URL'den gelen bilgiler ile başlayalım
     window.addEventListener('load', async () => {
@@ -294,6 +493,8 @@
         usernameDisplay.textContent = username;
 
         listenSeats();
+        listenChat();
+        listenGifts();
 
         statusBar.textContent = 'Lütfen boş bir koltuğa tıklayın ve oturun.';
       } catch(err) {
@@ -368,6 +569,39 @@
       }
     });
 
+    // Hediye kutusundaki tıklamalar
+    giftContainer.addEventListener('click', (ev) => {
+      const giftBox = ev.target.closest('.gift-box');
+      if (!giftBox) return;
+
+      if (!currentSeat) {
+        alert('Önce bir koltuğa oturmalısınız ki hediye gönderebilesiniz!');
+        return;
+      }
+
+      // Hediye gönderilecek kullanıcı seçimi için basit prompt ile seçim iste
+      let toSeatStr = prompt('Hediye göndermek istediğiniz koltuk numarasını girin (1-6):');
+      if (!toSeatStr) return;
+      const toSeatNum = parseInt(toSeatStr);
+      if (isNaN(toSeatNum) || toSeatNum < 1 || toSeatNum > 6) {
+        alert('Geçersiz koltuk numarası.');
+        return;
+      }
+      if (toSeatNum === currentSeat) {
+        alert('Kendinize hediye gönderemezsiniz.');
+        return;
+      }
+
+      const targetSeatEl = findSeatElement(toSeatNum);
+      if (!targetSeatEl || !targetSeatEl.classList.contains('occupied')) {
+        alert('Seçilen koltuk boş.');
+        return;
+      }
+
+      const giftSymbol = giftBox.getAttribute('data-gift');
+      sendGift(toSeatNum, giftSymbol);
+    });
+
     async function sitOnSeat(seatNum) {
       if(currentSeat) {
         alert('Zaten bir koltuktasınız. Önce kalkmalısınız.');
@@ -394,6 +628,7 @@
         await startPeerConnections();
 
         statusBar.textContent = `Koltuk ${seatNum}'de oturuyorsunuz. Mikrofon düğmesini kullanarak sesinizi açıp kapatabilirsiniz.`;
+        chatSendBtn.disabled = false;
       } catch(e) {
         alert('Koltuk oturum hatası: ' + e.message);
       }
@@ -416,145 +651,5 @@
         currentSeat = null;
         muteBtn.disabled = true;
         muted = false;
-        statusBar.textContent = 'Henüz bir koltuğa oturmadınız.';
-        muteBtn.textContent = '🎙️ Mikrofon Aç';
-        muteBtn.classList.remove('unmuted');
-      } catch(e) {
-        alert('Koltuktan kalkma hatası: ' + e.message);
-      }
-    }
-
-    // Mikrofon aç/kapat toggler
-    muteBtn.addEventListener('click', async () => {
-      if(!currentSeat) {
-        alert('Önce bir koltuğa oturun.');
-        return;
-      }
-      muted = !muted;
-      // Yerel streamde microphone track mute/unmute yap
-      localStream.getAudioTracks().forEach(track => {
-        track.enabled = !muted;
-      });
-      // DB güncelle
-      await database.ref(`rooms/${room}/seats/${currentSeat}`).update({ muted });
-
-      muteBtn.textContent = muted ? '🎙️ Mikrofonu Aç' : '🔇 Mikrofonu Kapat';
-      muteBtn.classList.toggle('unmuted', !muted);
-    });
-
-    // Tüm diğer kullanıcılar ile peer bağlantıları başlat
-    async function startPeerConnections() {
-      if(!currentSeat) return;
-      // Seats bilgisi al
-      const seatsSnap = await database.ref(`rooms/${room}/seats`).get();
-      const seatsData = seatsSnap.val() || {};
-
-      for(let seatNum =1; seatNum <=6; seatNum++) {
-        // Kendinizle bağlantı kurmayın
-        if(seatNum === currentSeat) continue;
-        // Eğer o seat dolu ise peer bağlantısını oluştur
-        if(seatsData[seatNum] && seatsData[seatNum].user) {
-          if(peerConnections[seatNum]) {
-            // Zaten bağlantı varsa atla
-            continue;
-          }
-          await setupConnectionWithPeer(seatNum);
-        }
-      }
-    }
-
-    // Peer bağlantısı kur
-    async function setupConnectionWithPeer(peerSeatNum) {
-      if(!currentSeat) return;
-
-      // Rastgele hangisi offerer olacağına karar verelim - küçük numaralı offerer olabilir
-      const isOfferer = currentSeat < peerSeatNum;
-
-      const pc = new RTCPeerConnection(rtcConfig);
-
-      localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-
-      pc.ontrack = event => {
-        playRemoteAudio(peerSeatNum, event.streams[0]);
-      };
-
-      pc.onicecandidate = event => {
-        if(event.candidate) {
-          const candidateRef = database.ref(`rooms/${room}/signals/${currentSeat}/${peerSeatNum}/ice`);
-          candidateRef.push(event.candidate.toJSON());
-        }
-      };
-
-      // ICE adaylarını dinle
-      const iceRef = database.ref(`rooms/${room}/signals/${peerSeatNum}/${currentSeat}/ice`);
-      iceRef.on('child_added', async snapshot => {
-        try {
-          await pc.addIceCandidate(new RTCIceCandidate(snapshot.val()));
-        } catch(e) {
-          console.error("ICE candidate add hatası:", e);
-        }
-      });
-
-      peerConnections[peerSeatNum] = pc;
-
-      if(isOfferer) {
-        // Offer oluştur ve Firebase kaydet
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        const offerRef = database.ref(`rooms/${room}/signals/${currentSeat}/${peerSeatNum}/offer`);
-        await offerRef.set(offer.toJSON());
-      } else {
-        // Remote offer dinle
-        const offerRef = database.ref(`rooms/${room}/signals/${peerSeatNum}/${currentSeat}/offer`);
-        offerRef.on('value', async snapshot => {
-          const offerSDP = snapshot.val();
-          if(offerSDP) {
-            try {
-              await pc.setRemoteDescription(new RTCSessionDescription(offerSDP));
-              const answer = await pc.createAnswer();
-              await pc.setLocalDescription(answer);
-              const answerRef = database.ref(`rooms/${room}/signals/${currentSeat}/${peerSeatNum}/answer`);
-              await answerRef.set(answer.toJSON());
-            } catch(e) {
-              console.error('Teklif işlem hatası:', e);
-            }
-          }
-        });
-      }
-
-      // Answer dinle
-      const answerRef = database.ref(`rooms/${room}/signals/${peerSeatNum}/${currentSeat}/answer`);
-      answerRef.on('value', async snapshot => {
-        const answerSDP = snapshot.val();
-        if(answerSDP) {
-          try {
-            await pc.setRemoteDescription(new RTCSessionDescription(answerSDP));
-          } catch(e) {
-            console.error('Yanıt işlem hatası:', e);
-          }
-        }
-      });
-    }
-
-    // Uzak streami ilgili seat'ta oynat
-    function playRemoteAudio(seatNum, stream) {
-      const seatEl = findSeatElement(seatNum);
-      if (!seatEl) return;
-      let audioEl = seatEl.querySelector('audio');
-      if (!audioEl) {
-        audioEl = document.createElement('audio');
-        audioEl.autoplay = true;
-        audioEl.style.display = 'none';
-        seatEl.appendChild(audioEl);
-      }
-      audioEl.srcObject = stream;
-    }
-
-    // Sayfadan ayrılırken temizleme
-    window.addEventListener('beforeunload', async (e) => {
-      await leaveSeat();
-    });
-  </script>
-</body>
-</html>
-
+        chatSendBtn.disabled = true;
+        statusBar.textContent = 'Henüz bir koltuğa o
