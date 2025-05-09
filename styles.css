@@ -1,0 +1,30 @@
+button {
+    width: 400px;
+    height: 50px;
+    margin-bottom: 15px;
+}
+
+#localMedia {
+    padding-bottom: 25px;
+}
+
+#connectButton {
+    margin-top: 25px;
+}
+
+#streamFromOptions {
+    min-width: 150px;
+    max-width: 85%;
+}
+
+.localVideo {
+    max-width: 75%;
+}
+
+.remoteVideo {
+    max-width: 75%;
+}
+
+.inputOptions {
+    padding: 10px;
+}
